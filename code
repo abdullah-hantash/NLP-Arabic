@@ -1,0 +1,589 @@
+!pip install numpy==1.21.6       
+!pip install scipy==1.7.3        
+!pip install scikit-learn==1.3.2
+!pip install tensorflow==2.10.1
+!pip install joblib --upgrade
+!pip install imbalanced-learn
+!pip install pyarabic
+import os
+os.kill(os.getpid(), 9)
+import pandas as pd
+
+try:
+
+
+    df = pd.read_csv('Emotional-Tone-Dataset.csv')
+    display(df.head())
+except FileNotFoundError:
+    print("Error: 'Emotional-Tone-Dataset.csv' not found.")
+except Exception as e:
+    print(f"An error occurred: {e}") 
+
+# Examine the basic structure of the DataFrame
+print("DataFrame Shape:", df.shape)
+print("\nData Types:\n", df.dtypes)
+print("\nMissing Values:\n", df.isnull().sum())
+
+# Analyze the distribution of key variables
+print("\nLabel Distribution:\n", df[' LABEL'].value_counts())
+# Calculate average tweet length
+df['tweet_length'] = df[' TWEET'].astype(str).apply(len)
+print("\nAverage Tweet Length:", df['tweet_length'].mean())
+print("\nTweet Length Distribution:\n", df['tweet_length'].describe())
+
+# Identify potential issues (look for unusual values in 'LABEL' and 'ID')
+print("\nUnique Labels:", df[' LABEL'].unique())
+print("\nUnique IDs:", df['ID'].unique())
+
+duplicates = df.duplicated(subset=[' TWEET']).sum()
+print(f"🔍 duplicated tweets : {duplicates}")
+
+
+print("\n📄 أمثلة على التويتات المكررة:")
+print(df[df.duplicated(subset=[' TWEET'])].head())
+
+
+
+
+
+!pip install pyarabic
+import pandas as pd
+import re
+import nltk
+from nltk.tokenize import word_tokenize
+from pyarabic.araby import strip_diacritics, strip_tashkeel
+
+# تحميل الموارد المطلوبة
+nltk.download('punkt')
+nltk.download('punkt_tab') # Add this line to download the missing resource
+
+# حروف الجر الشائعة
+prepositions = {
+    'في', 'على', 'عن', 'من', 'الى', 'إلى', 'ب', 'ل', 'ك', 'و', 'ثم', 'حتى', 'إلا', 'لكن', 'كما', 'أن', 'إن'
+}
+
+# دالة التطبيع
+def normalize_arabic(text):
+    text = re.sub(r"[إأآا]", "ا", text)
+    text = re.sub("ة", "ه", text)
+    text = re.sub("ى", "ي", text)
+    text = re.sub("گ", "ك", text)
+    return text
+
+# دالة التنظيف الكاملة
+def preprocess_text(text):
+    if not isinstance(text, str):
+        return ""
+
+    # إزالة الإيموجي
+    emoji_pattern = re.compile("["
+        u"\U0001F600-\U0001F64F"
+        u"\U0001F300-\U0001F5FF"
+        u"\U0001F680-\U0001F6FF"
+        u"\U0001F1E0-\U0001F1FF"
+        "]+", flags=re.UNICODE)
+    text = emoji_pattern.sub('', text)
+
+    # إزالة الروابط
+    text = re.sub(r"http\S+|www.\S+|t.co\S+", "", text)
+
+    # إزالة الأرقام
+    text = re.sub(r"\d+", "", text)
+
+    # إزالة الكلمات الإنجليزية
+    text = re.sub(r"[a-zA-Z]+", "", text)
+
+    # إزالة التشكيل والتطبيع
+    text = strip_diacritics(text)
+    text = strip_tashkeel(text)
+    text = normalize_arabic(text)
+
+    # إزالة علامات الترقيم والرموز
+    text = re.sub(r"[^\w\s!?؟]", " ", text)  # يُبقي ! و ؟ فقط
+    text = re.sub(r"\s+", " ", text).strip()  # إزالة المسافات الزائدة
+
+    # توكينايز وحذف حروف الجر
+    tokens = word_tokenize(text)
+    tokens = [word for word in tokens if word not in prepositions and len(word) > 1]
+
+    return " ".join(tokens)
+
+
+# ✅ حذف القيم المفقودة
+df = df.dropna(subset=[' TWEET'])
+
+# ✅ حذف التكرار في العمود النصي الأصلي
+df = df.drop_duplicates(subset=[' TWEET'])
+
+# ✅ تنظيف النصوص
+df['cleaned_text'] = df[' TWEET'].astype(str).apply(preprocess_text)
+df = df[df['cleaned_text'].str.strip() != '']
+
+# ✅ طباعة عينات
+print(df[[' TWEET', 'cleaned_text']].head())
+
+# ✅ حفظ النسخة النهائية
+df.to_csv("cleaned_light_version.csv", index=False)
+print("✅ Cleaned data saved to cleaned_light_version.csv")
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import LinearSVC
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
+from imblearn.over_sampling import RandomOverSampler
+
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.regularizers import l2
+
+# =================== تحميل البيانات ===================
+try:
+    df = pd.read_csv("cleaned_light_version.csv")
+    print("✅ DataFrame loaded.")
+except FileNotFoundError:
+    raise FileNotFoundError("❌ Could not load cleaned_light_version.csv")
+
+docs = df['cleaned_text'].astype(str)
+labels = df[' LABEL'].astype(str)
+
+# =================== TF-IDF ===================
+tfidf = TfidfVectorizer(token_pattern=r"(?u)\b[^\d\W]+\b", max_features=5000, ngram_range=(1, 2))
+X_tfidf = tfidf.fit_transform(docs)
+
+# عرض معلومات TF-IDF
+feature_names = tfidf.get_feature_names_out()
+print("\n📌 عدد الكلمات الفريدة في TF-IDF:", len(feature_names))
+print("🔤 بعض الكلمات المميزة:", feature_names[:20])
+print("\n🔢 مصفوفة TF-IDF (عرض أول 5 عينات):")
+print(pd.DataFrame(X_tfidf[:5].toarray(), columns=feature_names).round(2))
+
+# =================== Oversampling ===================
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(labels)
+ros = RandomOverSampler(random_state=42)
+X_resampled, y_resampled = ros.fit_resample(X_tfidf, y_encoded)
+
+# =================== Train-Test Split ===================
+X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.1, random_state=5)
+
+# =================== دالة التقييم ===================
+def print_metrics(y_true, y_pred, model_name=""):
+    acc = accuracy_score(y_true, y_pred)
+    precision_macro = precision_score(y_true, y_pred, average='macro', zero_division=0)
+    recall_macro = recall_score(y_true, y_pred, average='macro', zero_division=0)
+    f1_macro = f1_score(y_true, y_pred, average='macro', zero_division=0)
+    precision_weighted = precision_score(y_true, y_pred, average='weighted', zero_division=0)
+    recall_weighted = recall_score(y_true, y_pred, average='weighted', zero_division=0)
+    f1_weighted = f1_score(y_true, y_pred, average='weighted', zero_division=0)
+
+    print(f"\n📊 Metrics for {model_name}")
+    print(f"✅ Accuracy              : {acc:.2f}")
+    print(f"🟢 Precision (Macro)    : {precision_macro:.2f}")
+    print(f"🔵 Recall (Macro)       : {recall_macro:.2f}")
+    print(f"🟣 F1-Score (Macro)     : {f1_macro:.2f}")
+    print(f"🟢 Precision (Weighted) : {precision_weighted:.2f}")
+    print(f"🔵 Recall (Weighted)    : {recall_weighted:.2f}")
+    print(f"🟣 F1-Score (Weighted)  : {f1_weighted:.2f}")
+
+# =================== النماذج التقليدية ===================
+
+# Naive Bayes
+nb = MultinomialNB()
+nb.fit(X_train, y_train)
+nb_preds = nb.predict(X_test)
+print_metrics(y_test, nb_preds, model_name="TF-IDF + Naive Bayes")
+
+# SVM
+svm_params = {'C': [0.1, 1.0], 'loss': ['hinge', 'squared_hinge']}
+svm_grid = GridSearchCV(LinearSVC(), svm_params, cv=3, scoring='f1_macro', verbose=1, n_jobs=1)
+svm_grid.fit(X_train, y_train)
+print(f"\n🔧 Best SVM Params: {svm_grid.best_params_}")
+svm_preds = svm_grid.best_estimator_.predict(X_test)
+print_metrics(y_test, svm_preds, model_name="TF-IDF + SVM")
+
+# Random Forest
+rf_params = {'n_estimators': [100], 'max_depth': [10, 20]}
+rf_grid = GridSearchCV(RandomForestClassifier(random_state=5), rf_params, cv=3, scoring='f1_macro', verbose=1, n_jobs=1)
+rf_grid.fit(X_train, y_train)
+print(f"\n🔧 Best RF Params: {rf_grid.best_params_}")
+rf_preds = rf_grid.best_estimator_.predict(X_test)
+print_metrics(y_test, rf_preds, model_name="TF-IDF + Random Forest")
+
+# Decision Tree
+dt_params = {'max_depth': [10, 20], 'criterion': ['gini', 'entropy']}
+dt_grid = GridSearchCV(DecisionTreeClassifier(random_state=42), dt_params, cv=3, scoring='f1_macro', verbose=1, n_jobs=1)
+dt_grid.fit(X_train, y_train)
+print(f"\n🔧 Best DT Params: {dt_grid.best_params_}")
+dt_preds = dt_grid.best_estimator_.predict(X_test)
+print_metrics(y_test, dt_preds, model_name="TF-IDF + Decision Tree")
+
+# AdaBoost
+ada_params = {'n_estimators': [50, 100], 'learning_rate': [0.5, 1.0]}
+ada_grid = GridSearchCV(AdaBoostClassifier(random_state=42), ada_params, cv=3, scoring='f1_macro', verbose=1, n_jobs=1)
+ada_grid.fit(X_train, y_train)
+print(f"\n🔧 Best AdaBoost Params: {ada_grid.best_params_}")
+ada_preds = ada_grid.best_estimator_.predict(X_test)
+print_metrics(y_test, ada_preds, model_name="TF-IDF + AdaBoost")
+
+# =================== نموذج FNN ===================
+# One-hot encoding
+y_train_oh = to_categorical(y_train)
+y_test_oh = to_categorical(y_test)
+num_classes = y_train_oh.shape[1]
+
+# ✅ نموذج مبسط ومحسن
+model = Sequential([
+    Dense(512, activation='relu', kernel_regularizer=l2(0.05), input_shape=(X_train.shape[1],)),
+    BatchNormalization(),
+    Dropout(0.4),
+    Dense(256, activation='relu', kernel_regularizer=l2(0.05)),
+    BatchNormalization(),
+    Dropout(0.4),
+    Dense(num_classes, activation='softmax')
+])
+
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Early stopping مُشدد
+early_stop = EarlyStopping(monitor='val_loss', patience=1, restore_best_weights=True)
+
+# تدريب النموذج
+history = model.fit(X_train.toarray(), y_train_oh,
+                    epochs=20,
+                    batch_size=32,
+                    validation_split=0.1,
+                    callbacks=[early_stop],
+                    verbose=1)
+
+# التقييم
+loss, acc = model.evaluate(X_test.toarray(), y_test_oh, verbose=0)
+print(f"\n✅ Final FNN Accuracy: {acc:.2f}")
+
+# =================== رسم الدقة والخسارة ===================
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'], label='Training Accuracy', marker='o')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy', marker='o')
+plt.title('Accuracy Over Epochs TF-IDF + FNN')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.grid(True)
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'], label='Training Loss', marker='o')
+plt.plot(history.history['val_loss'], label='Validation Loss', marker='o')
+plt.title('Loss Over Epochs TF-IDF + FNN')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import LinearSVC
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.preprocessing import LabelEncoder
+
+from imblearn.over_sampling import RandomOverSampler
+
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.regularizers import l2
+
+# ✅ تحميل البيانات
+df = pd.read_csv("cleaned_light_version.csv")
+docs = df['cleaned_text'].astype(str)
+labels = df[' LABEL'].astype(str)
+
+# ✅ تمثيل BoW
+bow = CountVectorizer(token_pattern=r"(?u)\b[^\d\W]+\b", max_features=5000, ngram_range=(1, 2))
+X_bow = bow.fit_transform(docs)
+
+# ✅ طباعة معلومات BoW
+print(f"📌 BoW Matrix Shape: {X_bow.shape}")
+print(f"🧠 Unique Words in Vocabulary: {len(bow.vocabulary_)}")
+# =================== Oversampling ===================
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(labels)
+ros = RandomOverSampler(random_state=42)
+X_resampled, y_resampled = ros.fit_resample(X_tfidf, y_encoded)
+
+# ✅ تقسيم البيانات
+X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=5)
+
+# ✅ دالة تقييم
+def print_metrics(y_true, y_pred, model_name=""):
+    acc = accuracy_score(y_true, y_pred)
+    precision_macro = precision_score(y_true, y_pred, average='macro', zero_division=0)
+    recall_macro = recall_score(y_true, y_pred, average='macro', zero_division=0)
+    f1_macro = f1_score(y_true, y_pred, average='macro', zero_division=0)
+    precision_weighted = precision_score(y_true, y_pred, average='weighted', zero_division=0)
+    recall_weighted = recall_score(y_true, y_pred, average='weighted', zero_division=0)
+    f1_weighted = f1_score(y_true, y_pred, average='weighted', zero_division=0)
+
+    print(f"\n📊 Evaluation for {model_name}")
+    print(f"✅ Accuracy              : {acc:.2f}")
+    print(f"🟢 Precision (Macro)    : {precision_macro:.2f}")
+    print(f"🔵 Recall (Macro)       : {recall_macro:.2f}")
+    print(f"🟣 F1-score (Macro)     : {f1_macro:.2f}")
+    print(f"🟢 Precision (Weighted) : {precision_weighted:.2f}")
+    print(f"🔵 Recall (Weighted)    : {recall_weighted:.2f}")
+    print(f"🟣 F1-score (Weighted)  : {f1_weighted:.2f}")
+
+# 1️⃣ Naive Bayes
+nb_classifier = MultinomialNB()
+nb_classifier.fit(X_train, y_train)
+y_pred_nb = nb_classifier.predict(X_test)
+print_metrics(y_test, y_pred_nb, model_name="BoW + Naive Bayes")
+
+# 2️⃣ SVM
+svm_params = {'C': [0.1, 1.0], 'loss': ['hinge', 'squared_hinge']}
+svm_grid = GridSearchCV(LinearSVC(), svm_params, cv=3, scoring='f1_macro', verbose=1)
+svm_grid.fit(X_train, y_train)
+print(f"\n🔧 Best SVM Params: {svm_grid.best_params_}")
+svm_preds = svm_grid.best_estimator_.predict(X_test)
+print_metrics(y_test, svm_preds, model_name="BoW + SVM (Tuned)")
+
+# 3️⃣ Random Forest
+rf_params = {'n_estimators': [100, 200], 'max_depth': [10, 20]}
+rf_grid = GridSearchCV(RandomForestClassifier(random_state=5), rf_params, cv=3, scoring='f1_macro', verbose=1)
+rf_grid.fit(X_train, y_train)
+print(f"\n🔧 Best RF Params: {rf_grid.best_params_}")
+rf_preds = rf_grid.best_estimator_.predict(X_test)
+print_metrics(y_test, rf_preds, model_name="BoW + Random Forest (Tuned)")
+
+# 4️⃣ Decision Tree
+dt_params = {'max_depth': [10, None], 'criterion': ['gini', 'entropy']}
+dt_grid = GridSearchCV(DecisionTreeClassifier(random_state=42), dt_params, cv=3, scoring='f1_macro', verbose=1)
+dt_grid.fit(X_train, y_train)
+print(f"\n🔧 Best DT Params: {dt_grid.best_params_}")
+dt_preds = dt_grid.best_estimator_.predict(X_test)
+print_metrics(y_test, dt_preds, model_name="BoW + Decision Tree (Tuned)")
+
+# 5️⃣ AdaBoost
+ada_params = {'n_estimators': [50, 100], 'learning_rate': [0.5, 1.0]}
+ada_grid = GridSearchCV(AdaBoostClassifier(random_state=42), ada_params, cv=3, scoring='f1_macro', verbose=1)
+ada_grid.fit(X_train, y_train)
+print(f"\n🔧 Best AdaBoost Params: {ada_grid.best_params_}")
+ada_preds = ada_grid.best_estimator_.predict(X_test)
+print_metrics(y_test, ada_preds, model_name="BoW + AdaBoost (Tuned)")
+
+# ✅ FNN مع نفس البيانات
+label_encoder = LabelEncoder()
+y_train_enc = label_encoder.fit_transform(y_train)
+y_test_enc = label_encoder.transform(y_test)
+
+num_classes = len(np.unique(y_train_enc))
+y_train_oh = to_categorical(y_train_enc, num_classes)
+y_test_oh = to_categorical(y_test_enc, num_classes)
+model = Sequential([
+    Dense(512, activation='relu', kernel_regularizer=l2(0.05), input_shape=(X_train.shape[1],)),
+    BatchNormalization(),
+    Dropout(0.4),
+    Dense(256, activation='relu', kernel_regularizer=l2(0.05)),
+    BatchNormalization(),
+    Dropout(0.4),
+    Dense(num_classes, activation='softmax')
+])
+
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+early_stop = EarlyStopping(monitor='val_loss', patience=1, restore_best_weights=True, verbose=1)
+
+history = model.fit(
+    X_train.toarray(), y_train_oh,
+    epochs=20,
+    batch_size=32,
+    validation_split=0.1,
+    callbacks=[early_stop],
+    verbose=1
+)
+
+# تقييم النموذج
+loss, acc = model.evaluate(X_test.toarray(), y_test_oh, verbose=0)
+print(f"\n✅ FNN Accuracy on BoW: {acc:.2f}")
+
+# رسم الدوال
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Val Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.title('Model Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+
+import numpy as np
+import pandas as pd
+import nltk
+import matplotlib.pyplot as plt
+from nltk.tokenize import word_tokenize
+from gensim.models import Word2Vec
+from imblearn.over_sampling import RandomOverSampler
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import LabelEncoder
+from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, Embedding, LSTM, Bidirectional
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.callbacks import EarlyStopping
+
+nltk.download('punkt')
+
+# =================== تحميل البيانات ===================
+df = pd.read_csv("cleaned_light_version.csv")
+docs = df['cleaned_text'].astype(str)
+labels = df[' LABEL'].astype(str)
+tokenized_docs = [word_tokenize(doc) for doc in docs]
+
+# =================== تدريب Word2Vec ===================
+w2v_model = Word2Vec(sentences=tokenized_docs, vector_size=300, window=5, min_count=2, sg=1, epochs=30)
+
+# =================== متوسط التمثيل للتغريدات ===================
+def get_avg_w2v_vector(doc_tokens, model):
+    vectors = [model.wv[word] for word in doc_tokens if word in model.wv]
+    return np.mean(vectors, axis=0) if vectors else np.zeros(model.vector_size)
+
+X_w2v = np.array([get_avg_w2v_vector(tokens, w2v_model) for tokens in tokenized_docs])
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(labels)
+
+# =================== Oversampling + Train/Test Split ===================
+ros = RandomOverSampler(random_state=42)
+X_resampled, y_resampled = ros.fit_resample(X_w2v, y_encoded)
+X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=5)
+
+# =================== دالة التقييم ===================
+def print_metrics(y_true, y_pred, model_name=""):
+    acc = accuracy_score(y_true, y_pred)
+    precision_macro = precision_score(y_true, y_pred, average='macro', zero_division=0)
+    recall_macro = recall_score(y_true, y_pred, average='macro', zero_division=0)
+    f1_macro = f1_score(y_true, y_pred, average='macro', zero_division=0)
+    print(f"\n📊 {model_name}")
+    print(f"Accuracy     : {acc:.2f}")
+    print(f"Precision(M) : {precision_macro:.2f}")
+    print(f"Recall(M)    : {recall_macro:.2f}")
+    print(f"F1-score(M)  : {f1_macro:.2f}")
+
+# =================== النماذج التقليدية ===================
+svm_grid = GridSearchCV(SVC(), {'C': [0.1, 1, 10], 'kernel': ['linear', 'rbf']}, cv=3, scoring='f1_macro')
+svm_grid.fit(X_train, y_train)
+print_metrics(y_test, svm_grid.predict(X_test), "SVM (GridSearch)")
+
+dt_grid = GridSearchCV(DecisionTreeClassifier(random_state=5), {'max_depth': [10, 20, 30], 'min_samples_split': [2, 5, 10]}, cv=3, scoring='f1_macro')
+dt_grid.fit(X_train, y_train)
+print_metrics(y_test, dt_grid.predict(X_test), "Decision Tree (GridSearch)")
+
+rf_grid = GridSearchCV(RandomForestClassifier(random_state=5), {'n_estimators': [100, 200], 'max_depth': [10, 20]}, cv=3, scoring='f1_macro')
+rf_grid.fit(X_train, y_train)
+print_metrics(y_test, rf_grid.predict(X_test), "Random Forest (GridSearch)")
+
+ada_grid = GridSearchCV(AdaBoostClassifier(random_state=5), {'n_estimators': [50, 100], 'learning_rate': [0.5, 1.0]}, cv=3, scoring='f1_macro')
+ada_grid.fit(X_train, y_train)
+print_metrics(y_test, ada_grid.predict(X_test), "AdaBoost (GridSearch)")
+
+gnb = GaussianNB()
+gnb.fit(X_train, y_train)
+print_metrics(y_test, gnb.predict(X_test), "GaussianNB (Baseline)")
+
+# =================== FNN ===================
+print("\n🧠 Training FNN model...")
+num_classes = len(np.unique(y_train))
+y_train_oh = to_categorical(y_train, num_classes)
+y_test_oh = to_categorical(y_test, num_classes)
+
+fnn_model = Sequential()
+fnn_model.add(Dense(256, activation='relu', input_shape=(X_train.shape[1],)))
+fnn_model.add(Dropout(0.3))
+fnn_model.add(Dense(128, activation='relu'))
+fnn_model.add(Dropout(0.3))
+fnn_model.add(Dense(num_classes, activation='softmax'))
+
+fnn_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+fnn_history = fnn_model.fit(X_train, y_train_oh, epochs=10, batch_size=32, validation_split=0.1, verbose=1)
+
+fnn_loss, fnn_acc = fnn_model.evaluate(X_test, y_test_oh, verbose=0)
+print(f"\n✅ FNN Accuracy on Word2Vec: {fnn_acc:.2f}")
+# =================== LSTM ===================
+print("\n🧠 Training LSTM model...")
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(docs)
+sequences = tokenizer.texts_to_sequences(docs)
+word_index = tokenizer.word_index
+vocab_size = len(word_index) + 1
+max_len = max(len(seq) for seq in sequences)
+X_seq = pad_sequences(sequences, maxlen=max_len, padding='post')
+embedding_dim = w2v_model.vector_size
+embedding_matrix = np.zeros((vocab_size, embedding_dim))
+for word, i in word_index.items():
+    if word in w2v_model.wv:
+        embedding_matrix[i] = w2v_model.wv[word]
+
+# One-hot encode the labels for the LSTM model
+# Ensure y_encoded is available from previous steps
+num_classes_lstm = len(np.unique(y_encoded))
+y_cat = to_categorical(y_encoded, num_classes_lstm)
+
+X_train_seq, X_test_seq, y_train_seq, y_test_seq = train_test_split(X_seq, y_cat, test_size=0.2, random_state=5)
+
+lstm_model = Sequential()
+lstm_model.add(Embedding(input_dim=vocab_size, output_dim=embedding_dim,
+                         weights=[embedding_matrix], input_length=max_len, trainable=False))
+lstm_model.add(Bidirectional(LSTM(128, return_sequences=False, recurrent_dropout=0.2)))
+lstm_model.add(Dropout(0.5))
+lstm_model.add(Dense(64, activation='relu'))
+lstm_model.add(Dropout(0.4))
+# Use the correct number of classes for the output layer
+lstm_model.add(Dense(num_classes_lstm, activation='softmax'))
+
+lstm_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+early_stop = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True, verbose=1)
+
+lstm_history = lstm_model.fit(X_train_seq, y_train_seq,
+                              validation_split=0.1, epochs=20, batch_size=64,
+                              callbacks=[early_stop], verbose=1)
+
+lstm_loss, lstm_acc = lstm_model.evaluate(X_test_seq, y_test_seq)
+print(f"\n✅ LSTM Accuracy: {lstm_acc:.2f}")
