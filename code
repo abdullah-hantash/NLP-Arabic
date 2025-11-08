@@ -1,3 +1,4 @@
+#abdullahhantash
 !pip install numpy==1.21.6       
 !pip install scipy==1.7.3        
 !pip install scikit-learn==1.3.2
@@ -11,14 +12,14 @@ import pandas as pd
 
 try:
 
-
+#abdullahhantash
     df = pd.read_csv('Emotional-Tone-Dataset.csv')
     display(df.head())
 except FileNotFoundError:
     print("Error: 'Emotional-Tone-Dataset.csv' not found.")
 except Exception as e:
     print(f"An error occurred: {e}") 
-
+#abdullahhantash
 # Examine the basic structure of the DataFrame
 print("DataFrame Shape:", df.shape)
 print("\nData Types:\n", df.dtypes)
@@ -30,7 +31,7 @@ print("\nLabel Distribution:\n", df[' LABEL'].value_counts())
 df['tweet_length'] = df[' TWEET'].astype(str).apply(len)
 print("\nAverage Tweet Length:", df['tweet_length'].mean())
 print("\nTweet Length Distribution:\n", df['tweet_length'].describe())
-
+#abdullahhantash
 # Identify potential issues (look for unusual values in 'LABEL' and 'ID')
 print("\nUnique Labels:", df[' LABEL'].unique())
 print("\nUnique IDs:", df['ID'].unique())
@@ -43,7 +44,7 @@ print("\n📄 أمثلة على التويتات المكررة:")
 print(df[df.duplicated(subset=[' TWEET'])].head())
 
 
-
+#abdullahhantash
 
 
 !pip install pyarabic
@@ -52,16 +53,16 @@ import re
 import nltk
 from nltk.tokenize import word_tokenize
 from pyarabic.araby import strip_diacritics, strip_tashkeel
-
+#abdullahhantash
 # تحميل الموارد المطلوبة
 nltk.download('punkt')
 nltk.download('punkt_tab') # Add this line to download the missing resource
-
+#abdullahhantash
 # حروف الجر الشائعة
 prepositions = {
     'في', 'على', 'عن', 'من', 'الى', 'إلى', 'ب', 'ل', 'ك', 'و', 'ثم', 'حتى', 'إلا', 'لكن', 'كما', 'أن', 'إن'
 }
-
+#abdullahhantash
 # دالة التطبيع
 def normalize_arabic(text):
     text = re.sub(r"[إأآا]", "ا", text)
@@ -69,7 +70,7 @@ def normalize_arabic(text):
     text = re.sub("ى", "ي", text)
     text = re.sub("گ", "ك", text)
     return text
-
+#abdullahhantash
 # دالة التنظيف الكاملة
 def preprocess_text(text):
     if not isinstance(text, str):
@@ -108,20 +109,20 @@ def preprocess_text(text):
 
     return " ".join(tokens)
 
-
+#abdullahhantash
 # ✅ حذف القيم المفقودة
 df = df.dropna(subset=[' TWEET'])
-
+#abdullahhantash
 # ✅ حذف التكرار في العمود النصي الأصلي
 df = df.drop_duplicates(subset=[' TWEET'])
-
+#abdullahhantash
 # ✅ تنظيف النصوص
 df['cleaned_text'] = df[' TWEET'].astype(str).apply(preprocess_text)
 df = df[df['cleaned_text'].str.strip() != '']
-
+#abdullahhantash
 # ✅ طباعة عينات
 print(df[[' TWEET', 'cleaned_text']].head())
-
+#abdullahhantash
 # ✅ حفظ النسخة النهائية
 df.to_csv("cleaned_light_version.csv", index=False)
 print("✅ Cleaned data saved to cleaned_light_version.csv")
@@ -144,7 +145,7 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.regularizers import l2
-
+#abdullahhantash
 # =================== تحميل البيانات ===================
 try:
     df = pd.read_csv("cleaned_light_version.csv")
@@ -154,27 +155,27 @@ except FileNotFoundError:
 
 docs = df['cleaned_text'].astype(str)
 labels = df[' LABEL'].astype(str)
-
+#abdullahhantash
 # =================== TF-IDF ===================
 tfidf = TfidfVectorizer(token_pattern=r"(?u)\b[^\d\W]+\b", max_features=5000, ngram_range=(1, 2))
 X_tfidf = tfidf.fit_transform(docs)
-
+#abdullahhantash
 # عرض معلومات TF-IDF
 feature_names = tfidf.get_feature_names_out()
 print("\n📌 عدد الكلمات الفريدة في TF-IDF:", len(feature_names))
 print("🔤 بعض الكلمات المميزة:", feature_names[:20])
 print("\n🔢 مصفوفة TF-IDF (عرض أول 5 عينات):")
 print(pd.DataFrame(X_tfidf[:5].toarray(), columns=feature_names).round(2))
-
+#abdullahhantash
 # =================== Oversampling ===================
 label_encoder = LabelEncoder()
 y_encoded = label_encoder.fit_transform(labels)
 ros = RandomOverSampler(random_state=42)
 X_resampled, y_resampled = ros.fit_resample(X_tfidf, y_encoded)
-
+#abdullahhantash
 # =================== Train-Test Split ===================
 X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.1, random_state=5)
-
+#abdullahhantash
 # =================== دالة التقييم ===================
 def print_metrics(y_true, y_pred, model_name=""):
     acc = accuracy_score(y_true, y_pred)
@@ -193,15 +194,15 @@ def print_metrics(y_true, y_pred, model_name=""):
     print(f"🟢 Precision (Weighted) : {precision_weighted:.2f}")
     print(f"🔵 Recall (Weighted)    : {recall_weighted:.2f}")
     print(f"🟣 F1-Score (Weighted)  : {f1_weighted:.2f}")
-
+#abdullahhantash
 # =================== النماذج التقليدية ===================
-
+#abdullahhantash
 # Naive Bayes
 nb = MultinomialNB()
 nb.fit(X_train, y_train)
 nb_preds = nb.predict(X_test)
 print_metrics(y_test, nb_preds, model_name="TF-IDF + Naive Bayes")
-
+#abdullahhantash
 # SVM
 svm_params = {'C': [0.1, 1.0], 'loss': ['hinge', 'squared_hinge']}
 svm_grid = GridSearchCV(LinearSVC(), svm_params, cv=3, scoring='f1_macro', verbose=1, n_jobs=1)
@@ -209,7 +210,7 @@ svm_grid.fit(X_train, y_train)
 print(f"\n🔧 Best SVM Params: {svm_grid.best_params_}")
 svm_preds = svm_grid.best_estimator_.predict(X_test)
 print_metrics(y_test, svm_preds, model_name="TF-IDF + SVM")
-
+#abdullahhantash
 # Random Forest
 rf_params = {'n_estimators': [100], 'max_depth': [10, 20]}
 rf_grid = GridSearchCV(RandomForestClassifier(random_state=5), rf_params, cv=3, scoring='f1_macro', verbose=1, n_jobs=1)
@@ -217,7 +218,7 @@ rf_grid.fit(X_train, y_train)
 print(f"\n🔧 Best RF Params: {rf_grid.best_params_}")
 rf_preds = rf_grid.best_estimator_.predict(X_test)
 print_metrics(y_test, rf_preds, model_name="TF-IDF + Random Forest")
-
+#abdullahhantash
 # Decision Tree
 dt_params = {'max_depth': [10, 20], 'criterion': ['gini', 'entropy']}
 dt_grid = GridSearchCV(DecisionTreeClassifier(random_state=42), dt_params, cv=3, scoring='f1_macro', verbose=1, n_jobs=1)
@@ -225,7 +226,7 @@ dt_grid.fit(X_train, y_train)
 print(f"\n🔧 Best DT Params: {dt_grid.best_params_}")
 dt_preds = dt_grid.best_estimator_.predict(X_test)
 print_metrics(y_test, dt_preds, model_name="TF-IDF + Decision Tree")
-
+#abdullahhantash
 # AdaBoost
 ada_params = {'n_estimators': [50, 100], 'learning_rate': [0.5, 1.0]}
 ada_grid = GridSearchCV(AdaBoostClassifier(random_state=42), ada_params, cv=3, scoring='f1_macro', verbose=1, n_jobs=1)
@@ -233,7 +234,7 @@ ada_grid.fit(X_train, y_train)
 print(f"\n🔧 Best AdaBoost Params: {ada_grid.best_params_}")
 ada_preds = ada_grid.best_estimator_.predict(X_test)
 print_metrics(y_test, ada_preds, model_name="TF-IDF + AdaBoost")
-
+#abdullahhantash
 # =================== نموذج FNN ===================
 # One-hot encoding
 y_train_oh = to_categorical(y_train)
@@ -252,10 +253,10 @@ model = Sequential([
 ])
 
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-
+#abdullahhantash
 # Early stopping مُشدد
 early_stop = EarlyStopping(monitor='val_loss', patience=1, restore_best_weights=True)
-
+#abdullahhantash
 # تدريب النموذج
 history = model.fit(X_train.toarray(), y_train_oh,
                     epochs=20,
@@ -263,11 +264,11 @@ history = model.fit(X_train.toarray(), y_train_oh,
                     validation_split=0.1,
                     callbacks=[early_stop],
                     verbose=1)
-
+#abdullahhantash
 # التقييم
 loss, acc = model.evaluate(X_test.toarray(), y_test_oh, verbose=0)
 print(f"\n✅ Final FNN Accuracy: {acc:.2f}")
-
+#abdullahhantash
 # =================== رسم الدقة والخسارة ===================
 plt.figure(figsize=(12, 5))
 
@@ -312,16 +313,16 @@ from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.regularizers import l2
-
+#abdullahhantash
 # ✅ تحميل البيانات
 df = pd.read_csv("cleaned_light_version.csv")
 docs = df['cleaned_text'].astype(str)
 labels = df[' LABEL'].astype(str)
-
+#abdullahhantash
 # ✅ تمثيل BoW
 bow = CountVectorizer(token_pattern=r"(?u)\b[^\d\W]+\b", max_features=5000, ngram_range=(1, 2))
 X_bow = bow.fit_transform(docs)
-
+#abdullahhantash
 # ✅ طباعة معلومات BoW
 print(f"📌 BoW Matrix Shape: {X_bow.shape}")
 print(f"🧠 Unique Words in Vocabulary: {len(bow.vocabulary_)}")
@@ -330,10 +331,10 @@ label_encoder = LabelEncoder()
 y_encoded = label_encoder.fit_transform(labels)
 ros = RandomOverSampler(random_state=42)
 X_resampled, y_resampled = ros.fit_resample(X_tfidf, y_encoded)
-
+#abdullahhantash
 # ✅ تقسيم البيانات
 X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=5)
-
+#abdullahhantash
 # ✅ دالة تقييم
 def print_metrics(y_true, y_pred, model_name=""):
     acc = accuracy_score(y_true, y_pred)
@@ -366,7 +367,7 @@ svm_grid.fit(X_train, y_train)
 print(f"\n🔧 Best SVM Params: {svm_grid.best_params_}")
 svm_preds = svm_grid.best_estimator_.predict(X_test)
 print_metrics(y_test, svm_preds, model_name="BoW + SVM (Tuned)")
-
+#abdullahhantash
 # 3️⃣ Random Forest
 rf_params = {'n_estimators': [100, 200], 'max_depth': [10, 20]}
 rf_grid = GridSearchCV(RandomForestClassifier(random_state=5), rf_params, cv=3, scoring='f1_macro', verbose=1)
@@ -374,7 +375,7 @@ rf_grid.fit(X_train, y_train)
 print(f"\n🔧 Best RF Params: {rf_grid.best_params_}")
 rf_preds = rf_grid.best_estimator_.predict(X_test)
 print_metrics(y_test, rf_preds, model_name="BoW + Random Forest (Tuned)")
-
+#abdullahhantash
 # 4️⃣ Decision Tree
 dt_params = {'max_depth': [10, None], 'criterion': ['gini', 'entropy']}
 dt_grid = GridSearchCV(DecisionTreeClassifier(random_state=42), dt_params, cv=3, scoring='f1_macro', verbose=1)
@@ -382,7 +383,7 @@ dt_grid.fit(X_train, y_train)
 print(f"\n🔧 Best DT Params: {dt_grid.best_params_}")
 dt_preds = dt_grid.best_estimator_.predict(X_test)
 print_metrics(y_test, dt_preds, model_name="BoW + Decision Tree (Tuned)")
-
+#abdullahhantash
 # 5️⃣ AdaBoost
 ada_params = {'n_estimators': [50, 100], 'learning_rate': [0.5, 1.0]}
 ada_grid = GridSearchCV(AdaBoostClassifier(random_state=42), ada_params, cv=3, scoring='f1_macro', verbose=1)
@@ -390,7 +391,7 @@ ada_grid.fit(X_train, y_train)
 print(f"\n🔧 Best AdaBoost Params: {ada_grid.best_params_}")
 ada_preds = ada_grid.best_estimator_.predict(X_test)
 print_metrics(y_test, ada_preds, model_name="BoW + AdaBoost (Tuned)")
-
+#abdullahhantash
 # ✅ FNN مع نفس البيانات
 label_encoder = LabelEncoder()
 y_train_enc = label_encoder.fit_transform(y_train)
@@ -421,7 +422,7 @@ history = model.fit(
     callbacks=[early_stop],
     verbose=1
 )
-
+#abdullahhantash
 # تقييم النموذج
 loss, acc = model.evaluate(X_test.toarray(), y_test_oh, verbose=0)
 print(f"\n✅ FNN Accuracy on BoW: {acc:.2f}")
@@ -471,7 +472,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.callbacks import EarlyStopping
 
 nltk.download('punkt')
-
+#abdullahhantash
 # =================== تحميل البيانات ===================
 df = pd.read_csv("cleaned_light_version.csv")
 docs = df['cleaned_text'].astype(str)
